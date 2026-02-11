@@ -149,22 +149,33 @@ async function createDon(data) {
       throw new Error("Échec de la transaction Don. Détails: " + error.message);
   }
 }
-
 async function findAllDons() {
     const dons = await Don.findAll({
       include: [
-        { model: Personne, attributes: ['nom'] },
-        { model: TypeDon, attributes: ['libelle'] }
-      ]
+        { 
+          model: Personne, 
+          // Ajout de 'adresse' et 'contact' (optionnel mais utile) dans les attributs
+          attributes: ['nom', 'adresse', 'contact'] 
+        },
+        { 
+          model: TypeDon, 
+          attributes: ['libelle'] 
+        }
+      ],
+      // Optionnel : trier par date décroissante pour voir les derniers dons en premier
+      order: [['dateDon', 'DESC']] 
     });
   
-    // On transforme le résultat pour que React puisse lire "libelleType" directement
+    // Transformation du résultat
     return dons.map(d => {
-      const item = d.get({ plain: true }); // Convertit en objet simple
+      const item = d.get({ plain: true }); // Convertit l'instance Sequelize en objet JS simple
       return {
         ...item,
         libelleType: item.TypeDon ? item.TypeDon.libelle : "Autre",
-        nomDonateur: item.Personne ? item.Personne.nom : "Anonyme"
+        nomDonateur: item.Personne ? item.Personne.nom : "Anonyme",
+        // On extrait l'adresse de l'objet Personne pour l'avoir au premier niveau
+        adresse: item.Personne ? item.Personne.adresse : "Non renseignée",
+        contact: item.Personne ? item.Personne.contact : "---"
       };
     });
   }
