@@ -10,9 +10,7 @@ const User = sequelize.define("User", {
     username: {
         type: DataTypes.STRING,
         allowNull: false,
-        unique: {
-            msg: "Ce nom d'utilisateur est déjà pris."
-        },
+        unique: { msg: "Ce nom d'utilisateur est déjà pris." },
     },
     password: {
         type: DataTypes.STRING,
@@ -20,11 +18,16 @@ const User = sequelize.define("User", {
     },
     role: {
         type: DataTypes.STRING,
-        defaultValue: "ADMIN",
+        defaultValue: "CONSULTANT", // Un nouvel inscrit est consultant par défaut
+    },
+    // 🛡️ NOUVEAU : État du compte
+    status: {
+        type: DataTypes.STRING,
+        defaultValue: "PENDING", // PENDING, APPROVED, REJECTED
     }
 }, {
     tableName: "Users",
-    timestamps: true // Garde trace de la date de création
+    timestamps: true 
 });
 
 module.exports = User;

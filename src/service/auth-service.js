@@ -9,43 +9,47 @@ const hashPassword = (password) => {
     return crypto.createHash('sha256').update(password).digest('hex');
 };
 
+// ... (imports et hashPassword inchangés)
+
 async function login(username, password) {
     const hashedPassword = hashPassword(password);
-    console.log("Tentative de login pour:", username);
-    console.log("Password hashé calculé:", hashedPassword);
-    // 1. Recherche de l'utilisateur
+    
     const user = await User.findOne({ 
         where: { username, password: hashedPassword } 
-      
     });
 
     if (!user) {
-        console.log("❌ Utilisateur non trouvé ou mot de passe incorrect");
-        throw new Error("Identifiants incorrects");
-        
+        throw new Error("NOT_FOUND"); // Identifiants faux
     }
 
-    // 2. Création du Token
-    // On met les infos importantes (id, role) dans le "payload" (le contenu du token)
+    // 🚩 VERIFICATION DU STATUT
+    if (user.status === 'PENDING') {
+        throw new Error("ACCOUNT_PENDING");
+    }
+    if (user.status === 'REJECTED') {
+        throw new Error("ACCOUNT_REJECTED");
+    }
+
     const token = jwt.sign(
-        { 
-            idUser: user.idUser, 
-            username: user.username, 
-            role: user.role 
-        },
+        { idUser: user.idUser, username: user.username, role: user.role },
         SECRET_KEY,
-        { expiresIn: '24h' } // Le token sera valide pendant 24 heures
+        { expiresIn: '24h' }
     );
 
-    // 3. Retourner les infos au contrôleur
     return {
         token,
-        user: {
-            id: user.idUser,
-            username: user.username,
-            role: user.role
-        }
+        user: { id: user.idUser, username: user.username, role: user.role }
     };
 }
 
-module.exports = { login, hashPassword };
+// Ajoute cette fonction pour que l'admin puisse lister les demandes
+async function getPendingUsers() {
+    return await User.findAll({ where: { status: 'PENDING' } });
+}
+
+// Ajoute cette fonction pour valider/refuser
+async function updateUserStatus(idUser, newStatus) {
+    return await User.update({ status: newStatus }, { where: { idUser } });
+}
+
+module.exports = { login, hashPassword, getPendingUsers, updateUserStatus };
