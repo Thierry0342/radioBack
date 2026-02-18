@@ -22,12 +22,30 @@ async function getAllTypes(req, res) {
 }
 
 // Supprimer un type
+// Supprimer un type
 async function deleteTypeDon(req, res) {
   try {
-    await typeDonService.deleteTypeDon(req.params.id);
-    res.json({ message: "Type de don supprimé" });
+    const id = req.params.id;
+    console.log("Tentative de suppression de l'ID :", id);
+
+    const nbSupprime = await typeDonService.deleteTypeDon2(id);
+
+    if (nbSupprime === 0) {
+      console.log("❌ Échec : Aucun type trouvé avec cet ID dans la base.");
+      return res.status(404).json({ error: "Type de don non trouvé dans la base de données." });
+    }
+
+    console.log("✅ Succès : Ligne supprimée.");
+    res.json({ message: "Type de don supprimé avec succès" });
+    
   } catch (error) {
-    res.status(500).json({ error: "Erreur lors de la suppression du type de don" });
+    if (error.message === "CONSTRAINT_ERROR") {
+      return res.status(400).json({
+        error: `Suppression impossible : ce type est lié à ${error.count} don(s).`
+      });
+    }
+    console.error("Erreur serveur :", error);
+    res.status(500).json({ error: "Erreur lors de la suppression sur le serveur" });
   }
 }
 

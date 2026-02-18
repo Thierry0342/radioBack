@@ -322,7 +322,8 @@ async function updateDon(payload) {
         const { idDon, personne, don, maharitraDetails } = payload;
       
         // --- Étape 1 : Mettre à jour la Personne ---
-        if (personne && personne.idPersonne) {
+        // Vérifie qu'il y a bien un ID valide (différent de 0 et non null)
+        if (personne && personne.idPersonne && personne.idPersonne !== 0) {
             await Personne.update(
                 { nom: personne.nom, contact: personne.contact, adresse: personne.adresse },
                 { where: { idPersonne: personne.idPersonne }, transaction }
@@ -330,13 +331,11 @@ async function updateDon(payload) {
         }
 
         // --- Étape 2 : Mettre à jour le Don Principal ---
-        // On ne met à jour que la date et l'idType (le montant est recalculé après les mensuels)
         const updatedDonData = {
             dateDon: don.dateDon,
             idType: don.idType,
         };
 
-        // Si ce n'est pas un Maharitra (c'est un TSOTRA), mettez à jour le montant directement
         if (don.montant && !maharitraDetails) {
              updatedDonData.montant = parseFloat(don.montant);
         }
@@ -348,42 +347,49 @@ async function updateDon(payload) {
         if (maharitraDetails && maharitraDetails.mensuels && maharitraDetails.mensuels.length > 0) {
             
             // Récupérer l'enregistrement DonMaharitra lié à ce don
-            let donMaharitra = await DonMaharitra.findOne({
+            let engagement = await DonMaharitra.findOne({
                 where: { idDon: idDon },
                 transaction
             });
 
-            // Si l'enregistrement d'engagement n'existe pas, il faut le créer
-            if (!donMaharitra) {
-                // On doit déterminer l'idPersonne à partir du Don
+            // Si l'enregistrement n'existe pas, on le crée
+            if (!engagement) {
                 const existingDon = await Don.findByPk(idDon, { transaction });
-
-                donMaharitra = await DonMaharitra.create({
+                
+                engagement = await DonMaharitra.create({
                     idDon: idDon,
                     idPersonne: existingDon.idPersonne, 
-                    annee: maharitraDetails.annee || new Date().getFullYear(),
-                    // Les autres champs d'engagement (montant total, fréquence, etc.) devraient être gérés ici
+                    annee: maharitraDetails.annee || new Date().getFullYear()
                 }, { transaction });
             }
 
-
-            // Enregistrer chaque nouveau paiement mensuel
+            // 🎯 CORRECTION MAJEURE ICI : Les noms des colonnes
             const nouveauxPaiements = maharitraDetails.mensuels.map(m => ({
-                idDon: idDon,
-                idDonMaharitra: donMaharitra.idDonMaharitra, // Liaison correcte
+                idMaharitra: engagement.idMaharitra, // ✅ C'est le vrai nom de ta clé étrangère !
                 mois: m.mois,
                 montant: parseFloat(m.montant),
-                datePaiement: m.datePaiement,
+                datePaiement: m.datePaiement || don.dateDon || new Date(),
+                // J'ai enlevé idDon car il n'est pas dans la table donmaharitramensuel selon ton erreur SQL
             }));
 
+            // Avant d'insérer, il est souvent préférable de supprimer les anciens mois pour éviter les doublons
+            // si tu renvoies tous les mois cochés depuis le Frontend
+            await DonMaharitraMensuel.destroy({ 
+                where: { idMaharitra: engagement.idMaharitra }, 
+                transaction 
+            });
+
+            // Insertion des nouveaux mois
             await DonMaharitraMensuel.bulkCreate(nouveauxPaiements, { transaction });
             
-            // *** ÉTAPE CRUCIALE : RECALCULER LE MONTANT TOTAL DU DON PRINCIPAL ***
-            // Après l'ajout de nouveaux paiements, le montant total du Don (Don.montant) doit être mis à jour.
-            const totalPaye = await DonMaharitraMensuel.sum('montant', {
-                where: { idDon: idDon },
+            // Recalculer le montant total
+            const sumResult = await DonMaharitraMensuel.sum('montant', {
+                where: { idMaharitra: engagement.idMaharitra }, // ✅ Changé ici aussi
                 transaction
             });
+
+            // Si sumResult est NaN ou null, on met 0
+            const totalPaye = sumResult || 0; 
 
             await Don.update(
                 { montant: totalPaye },
@@ -396,12 +402,7 @@ async function updateDon(payload) {
 
     } catch (error) {
         await transaction.rollback();
-        
-        // 🚀 CORRECTION : Afficher la cause détaillée et la relancer
         console.error("Erreur détaillée dans donService.updateDon:", error);
-
-        // Au lieu de relancer un message générique, relancez l'erreur originale (si elle est de type Error)
-        // ou un message incluant les détails de l'erreur.
         throw new Error("Échec de la mise à jour du don et des paiements mensuels. Détails: " + error.message);
     }
 }

@@ -102,6 +102,23 @@ async function updateMensuel(idMensuel, nouveauMontant, nouvelleDate) {
         throw error;
     }
 }
+async function getAllMaharitraStats(annee) {
+    return await DonMaharitraMensuel.findAll({
+        attributes: ['montant', 'mois', 'datePaiement'],
+        include: [{
+            model: DonMaharitra,
+            required: true,
+            where: { annee: String(annee) },
+            include: [{
+                model: Don,
+                required: true,
+                include: ['Personne'] // Pour avoir le nom du donateur
+            }]
+        }],
+        raw: true,
+        nest: true // Pour garder une structure d'objet propre
+    });
+}
 
 module.exports = {
     createMensuel,
@@ -110,4 +127,5 @@ module.exports = {
     payMonth,
     getMaharitraStatus, 
     deleteMensuel,
+    getAllMaharitraStats
 };

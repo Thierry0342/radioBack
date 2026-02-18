@@ -13,6 +13,7 @@ var donMaharitra_route=require("./src/routes/donMaharitra-route")
 var donMensuel_route=require("./src/routes/donMensuel-route")
 var personne_route=require("./src/routes/personne-route")
 var typeDon_route=require("./src/routes/typedon-route")
+var authRoutes = require("./src/routes/auth-routes");
 
 
 const { log } = require("console");
@@ -28,9 +29,11 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 // Association et synchronisation BDD
 require("./src/schemas/association");
-DB.sync({ alter: true })
+
+DB.sync({ alter: false })
   .then(() => {
     console.log("✅ Database synchronized");
+    
   })
   .catch((err) => {
     console.error("❌ Database sync error:", err.message);
@@ -44,6 +47,7 @@ app.use("/api/typedon",typeDon_route);
 app.use("/api/don",don_route);
 app.use("/api/don-maharitra",donMaharitra_route);
 app.use("/api/don-mensuel/",donMensuel_route);
+app.use("/api/auth", authRoutes);
 
 
 

@@ -70,11 +70,32 @@ async function deleteMensuel(req, res) {
         res.status(500).json({ message: "Erreur serveur lors de la suppression.", details: error.message });
     }
 }
+async function getAllMaharitraStats(req, res) {
+    const { annee } = req.query;
 
+    if (!annee) {
+        return res.status(400).json({ message: "L'année est requise." });
+    }
+
+    try {
+        // Cette fonction doit être définie dans ton mensuelService (voir code précédent)
+        const stats = await mensuelService.getAllMaharitraStats(annee);
+        
+        // On retourne la liste brute, le frontend s'occupera du groupement
+        res.status(200).json(stats);
+    } catch (error) {
+        console.error("Erreur lors de la récupération des stats globales:", error);
+        res.status(500).json({ 
+            error: "Erreur serveur lors de la génération du tableau.", 
+            details: error.message 
+        });
+    }
+}
 
 module.exports = {
     getMensuelByMaharitra,
     payMonth,
     getMaharitraStatus,
-    deleteMensuel
+    deleteMensuel,
+    getAllMaharitraStats
 };
