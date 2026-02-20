@@ -60,12 +60,13 @@ app.use('/data/uploads', express.static(path.join(__dirname, 'public/data/upload
 app.use(express.static(path.join(__dirname, '../radioFront/dist')));
 
 // ** Ne pas intercepter les routes /data/uploads et /api dans ce fallback SPA **
- app.get('*', (req, res, next) => {
+app.get(/(.*)/, (req, res, next) => {
   if (req.path.startsWith('/data/uploads') || req.path.startsWith('/api')) {
     return next(); // laisse Express gérer ces routes
   }
   res.sendFile(path.join(__dirname, '../radioFront/dist/index.html'));
 });
+
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
